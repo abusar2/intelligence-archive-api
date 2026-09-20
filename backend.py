@@ -96,6 +96,11 @@ ROUTE_MAP = {
     'mother_family': {
         'endpoint': '/PSApp/PsArchive/getNMF.php',
         'params': ['mother', 'family']
+    },
+    # ✅ البحث برقم الهوية
+    'id': {
+        'endpoint': '/PSApp/PsArchive/getIDP.php',
+        'params': ['id', 'type']
     }
 }
 
@@ -204,6 +209,11 @@ def search():
         if val:
             has_value = True
             filtered_params[key] = val
+
+    # ✅ خاص بـ route id: نضيف "type" تلقائياً لأن الفرونت إند ما بيبعته
+    if route == 'id' and 'id' in filtered_params:
+        # type=1 يعني جلب بيانات كاملة (مش مجرد تحقق)
+        filtered_params['type'] = params.get('type', '1').strip() or '1'
 
     if not has_value:
         return jsonify({
