@@ -6,11 +6,19 @@ import os
 import json
 import base64
 import logging
+import socket                              # ✅ [تعديل] لفرض IPv4
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
+import urllib3.util.connection              # ✅ [تعديل] لفرض IPv4
 from dotenv import load_dotenv
+
+# ✅ [تعديل] إجبار الاتصال عبر IPv4 فقط
+# السبب: zezsoft.eu يعلن عنوان IPv6، و Render لا يدعم IPv6 صادراً،
+# ومكتبة urllib3 لا تنتقل تلقائياً إلى IPv4 (بخلاف curl)،
+# مما يؤدي إلى خطأ [Errno 101] Network is unreachable.
+urllib3.util.connection.allowed_gai_family = lambda: socket.AF_INET
 
 # Load environment variables
 load_dotenv()
@@ -344,4 +352,5 @@ if __name__ == '__main__':
     logger.info(f"Upstream base URL: {UPSTREAM_BASE_URL}")
     logger.info(f"Auth configured: {'YES' if UPSTREAM_USER and UPSTREAM_PASS else 'NO'}")
     logger.info(f"Routes available: {len(ROUTE_MAP)}")
+    logger.info("IPv4 forced: YES (allowed_gai_family = AF_INET)")
     app.run(host='0.0.0.0', port=PORT, debug=False)
