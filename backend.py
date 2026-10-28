@@ -6,15 +6,15 @@ import os
 import json
 import base64
 import logging
-import socket                              # ✅ [تعديل] لفرض IPv4
+import socket                              # ✅ [تعديل 1] لفرض IPv4
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
-import urllib3.util.connection              # ✅ [تعديل] لفرض IPv4
+import urllib3.util.connection              # ✅ [تعديل 1] لفرض IPv4
 from dotenv import load_dotenv
 
-# ✅ [تعديل] إجبار الاتصال عبر IPv4 فقط
+# ✅ [تعديل 1] إجبار الاتصال عبر IPv4 فقط
 # السبب: zezsoft.eu يعلن عنوان IPv6، و Render لا يدعم IPv6 صادراً،
 # ومكتبة urllib3 لا تنتقل تلقائياً إلى IPv4 (بخلاف curl)،
 # مما يؤدي إلى خطأ [Errno 101] Network is unreachable.
@@ -32,6 +32,17 @@ PORT = int(os.getenv('PORT', '8080'))
 
 # Allowed origins (CORS)
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', '*').split(',')
+
+# ✅ [تعديل 2] رؤوس HTTP شبيهة بالمتصفح لتجاوز جدران الحماية
+# بعض أنظمة ModSecurity على Hostinger تحظر User-Agent الخاص بـ requests
+BROWSER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
+    'Accept-Encoding': 'gzip, deflate',
+    'Connection': 'keep-alive',
+}
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -170,7 +181,10 @@ def health_check():
         response = requests.post(
             test_url,
             data={'family': 'test'},
-            headers={'Authorization': auth},
+            headers={
+                'Authorization': auth,
+                **BROWSER_HEADERS,                       # ✅ [تعديل 2]
+            },
             timeout=5
         )
         upstream_ok = response.status_code == 200
@@ -246,7 +260,8 @@ def search():
             data=filtered_params,
             headers={
                 'Authorization': auth,
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
+                **BROWSER_HEADERS,                       # ✅ [تعديل 2]
             },
             timeout=UPSTREAM_TIMEOUT
         )
@@ -329,6 +344,23 @@ def diagnose():
     }
     return jsonify(results), 200
 
+# ✅ [تعديل 3] نقطة تشخيص جديدة: تعرض عنوان IP الصادر من Render
+# تساعد في تحديد ما إذا كان الحظر على مستوى IP أم لا
+@app.route('/api/outbound-ip', methods=['GET'])
+def outbound_ip():
+    """Returns Render's outbound IP — helps diagnose IP-based blocking."""
+    try:
+        r = requests.get('https://api.ipify.org?format=json', timeout=5)
+        return jsonify({
+            'outbound_ip': r.json().get('ip'),
+            'status': 'ok'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'failed',
+            'error': str(e)
+        }), 500
+
 # ============================================================
 # ERROR HANDLERS
 # ============================================================
@@ -353,4 +385,5 @@ if __name__ == '__main__':
     logger.info(f"Auth configured: {'YES' if UPSTREAM_USER and UPSTREAM_PASS else 'NO'}")
     logger.info(f"Routes available: {len(ROUTE_MAP)}")
     logger.info("IPv4 forced: YES (allowed_gai_family = AF_INET)")
+    logger.info("Browser-like headers: ENABLED")
     app.run(host='0.0.0.0', port=PORT, debug=False)
