@@ -5,7 +5,7 @@ services:
     plan: free
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -b 0.0.0.0:10000 --timeout 120 --workers 1 backend:app
+    startCommand: gunicorn -b 0.0.0.0:10000 backend:app
     envVars:
       - key: UPSTREAM_BASE_URL
         value: https://zezsoft.eu
@@ -14,16 +14,8 @@ services:
       - key: UPSTREAM_PASS
         value: Zezsoft$Pass#2025
       - key: UPSTREAM_TIMEOUT
-        value: 25
+        value: 20
       - key: PORT
         value: 10000
       - key: ALLOWED_ORIGINS
-        value: "iploop_b5cb1fa6_8450c2984d57322825ff522238bd9407430c8d16"
-      - key: IPLOOP_API_KEY
-        sync: false
-      - key: IPLOOP_COUNTRY
-        value: PS
-      - key: IPLOOP_PROXY_TYPE
-        value: residential
-      - key: IPLOOP_CACHE_TTL
-        value: 300
+        value: "*"
